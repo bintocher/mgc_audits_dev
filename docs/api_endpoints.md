@@ -173,11 +173,18 @@
 
 ### Ресурс: `/api/v1/audit_plans`
 - `GET /api/v1/audit_plans`: Список планов аудитов.
-    - **Query Params:** `enterprise_id`, `status`, `date_from`, `date_to`, `sort_by`, `order`, `page`, `size`.
+    - **Query Params:** `enterprise_id`, `category` ('product', 'process_system', 'lra', 'external'), `status`, `date_from`, `date_to`, `sort_by`, `order`, `page`, `size`.
 - `POST /api/v1/audit_plans`: Создать план.
 - `GET /api/v1/audit_plans/{id}`: Получить план.
 - `PUT /api/v1/audit_plans/{id}`: Обновить план.
 - `DELETE /api/v1/audit_plans/{id}`: Удалить план.
+- `POST /api/v1/audit_plans/{id}/approve_by_division`: Утвердить план на уровне Дивизиона.
+    - **Response:** `200 OK` с обновленным статусом одобрения
+- `POST /api/v1/audit_plans/{id}/approve_by_uk`: Утвердить план на уровне УК.
+    - **Response:** `200 OK` с обновленным статусом одобрения
+- `POST /api/v1/audit_plans/{id}/reject`: Отклонить план с комментарием.
+    - **Request Body:** `{ "reason": "Причина отклонения" }`
+    - **Response:** `200 OK`
 
 ### Ресурс: `/api/v1/audit_plan_items`
 - `GET /api/v1/audit_plan_items`: Список пунктов плана.
@@ -204,28 +211,81 @@
 
 ### Ресурс: `/api/v1/audits`
 - `GET /api/v1/audits`: Список аудитов.
-    - **Query Params:** `enterprise_id`, `audit_type_id`, `status_id`, `auditor_id`, `year`, `audit_date_from`, `audit_date_to`, `sort_by`, `order`, `page`, `size`.
+    - **Query Params:** `enterprise_id`, `audit_category` ('product', 'process_system', 'lra', 'external'), `audit_type_id`, `status_id`, `auditor_id`, `year`, `audit_date_from`, `audit_date_to`, `sort_by`, `order`, `page`, `size`.
 - `POST /api/v1/audits`: Создать аудит.
+    - **Request Body может содержать:**
+        - Для внешних аудитов: `responsible_user_id`, `pcd_planned_close_date`, `pcd_status`
 - `GET /api/v1/audits/{id}`: Получить аудит.
 - `PUT /api/v1/audits/{id}`: Обновить аудит.
+    - **Для внешних аудитов можно обновлять:** `pcd_actual_close_date`, `pcd_status`
 - `DELETE /api/v1/audits/{id}`: Удалить аудит.
 
 ---
 
 ### Ресурс: `/api/v1/audits/calendar` (НОВОЕ)
-Специализированные эндпоинты для работы с графиком аудитов в произвольные периоды.
+Специализированные эндпоинты для работы с графиком аудитов в произвольные периоды, разделенные по неделям.
 
-- `GET /api/v1/audits/calendar/schedule`: Получить график аудитов за произвольный период.
+- `GET /api/v1/audits/calendar/schedule`: Получить график аудитов за произвольный период, сгруппированный по неделям.
     - **Query Params:**
         - `date_from` (обязательно): начальная дата периода (ISO 8601)
         - `date_to` (обязательно): конечная дата периода (ISO 8601)
+        - `audit_category` (опционально): тип графика ('product', 'process_system', 'lra', 'external')
         - `enterprise_id` (опционально): фильтр по предприятию
-        - `process_id` (опционально): фильтр по процессу
-        - `product_id` (опционально): фильтр по продукту
+        - `division_id` (опционально): фильтр по дивизиону
         - `auditor_id` (опционально): фильтр по аудитору
         - `status_id` (опционально): фильтр по статусу
-    - **Response:** Список аудитов в периоде с их компонентами, часами, статусом, результатом
-    - **Пример:** `GET /api/v1/audits/calendar/schedule?date_from=2025-01-01&date_to=2025-12-31&enterprise_id=xxx`
+    - **Response:** 
+        ```json
+        {
+          "period": {
+            "date_from": "2025-01-06",
+            "date_to": "2025-12-31",
+            "weeks": [
+              {
+                "week_number": 1,
+                "year": 2025,
+                "start_date": "2025-01-06",
+                "end_date": "2025-01-12"
+              }
+            ]
+          },
+          "audits": [
+            {
+              "id": "uuid",
+              "title": "Аудит продукта HAVAL",
+              "audit_number": "AUD-001",
+              "category": "product",
+              "auditor": { "id": "uuid", "full_name": "Иван Петров" },
+              "locations": [{ "id": "uuid", "name": "Завод НН" }],
+              "clients": ["Клиент1"],
+              "risk_level": "1",
+              "milestone_codes": "LRA1",
+              "status": "approved",
+              "weeks": [
+                {
+                  "week_number": 1,
+                  "year": 2025,
+                  "manual_data": "LRA1",
+                  "calculated_result": "Green",
+                  "calculated_status": "pending",
+                  "color": "#00FF00"
+                }
+              ]
+            }
+          ]
+        }
+        ```
+    - **Пример:** `GET /api/v1/audits/calendar/schedule?date_from=2025-01-01&date_to=2025-12-31&audit_category=lra`
+
+- `PATCH /api/v1/audits/{audit_id}/schedule/{week_number}/{year}`: Редактировать ячейку графика (ручной ввод).
+    - **Request Body:**
+        ```json
+        {
+          "manual_data": "LRA1 SOP",
+          "color_override": null
+        }
+        ```
+    - **Response:** `200 OK` с обновленной ячейкой (week_number, year, manual_data, calculated_result, calculated_status, color)
 
 - `GET /api/v1/audits/calendar/by_component`: Получить график по компонентам (детали, узлы, системы).
     - **Query Params:**

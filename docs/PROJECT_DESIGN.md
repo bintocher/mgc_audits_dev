@@ -309,10 +309,21 @@ title: VARCHAR(500)
 date_from: DATE
 date_to: DATE
 enterprise_id: UUID (FK -> Enterprise)
+category: VARCHAR(50)  # 'product', 'process_system', 'lra', 'external' - тип графика
 status: VARCHAR(20)  # 'draft', 'approved', 'in_progress', 'completed'
+version_number: INTEGER DEFAULT 1  # Версия плана
+
+# Согласование на уровне Дивизиона
+approved_by_division: BOOLEAN DEFAULT FALSE
+approved_by_division_user_id: UUID (FK -> User, nullable)
+approved_by_division_at: TIMESTAMP (nullable)
+
+# Согласование на уровне УК (управляющей компании)
+approved_by_uk: BOOLEAN DEFAULT FALSE
+approved_by_uk_user_id: UUID (FK -> User, nullable)
+approved_by_uk_at: TIMESTAMP (nullable)
+
 created_by_id: UUID (FK -> User)
-approved_by_id: UUID (FK -> User, nullable)
-approved_at: TIMESTAMP (nullable)
 created_at: TIMESTAMP
 updated_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
@@ -364,19 +375,34 @@ enterprise_id: UUID (FK -> Enterprise)
 audit_type_id: UUID (FK -> AuditType)
 process_id: UUID (FK -> Process, nullable)
 product_id: UUID (FK -> Product, nullable)
-project_id: UUID (FK -> Project, nullable)
+project_id: UUID (FK -> Project, nullable)  # Для LRA аудитов
 norm_id: UUID (FK -> QualificationStandard, nullable)
 status_id: UUID (FK -> Status)
-auditor_id: UUID (FK -> User)
+auditor_id: UUID (FK -> User)  # Аудитор/проверяющий
+responsible_user_id: UUID (FK -> User, nullable)  # Ответственный с нашей стороны за этот аудит (для внешних аудитов)
 audit_plan_item_id: UUID (FK -> AuditPlanItem, nullable)  # связь с планом
 audit_date_from: DATE
 audit_date_to: DATE
 year: INTEGER
 
+# Категория графика
+audit_category: VARCHAR(50)  # 'product', 'process_system', 'lra', 'external'
+
 # Новые поля: результаты и ресурсы
 audit_result: VARCHAR(20) (nullable)  # 'green', 'yellow', 'red', 'no_noncompliance'
 estimated_hours: DECIMAL (nullable)  # плановые часы на аудит
 actual_hours: DECIMAL (nullable)  # фактические часы (заполняется после завершения)
+
+# Новые поля для LRA и графиков
+risk_level_id: UUID (FK -> Dictionary тип RISK, nullable)  # Уровень риска (1 или 2)
+milestone_codes: VARCHAR(100) (nullable)  # Коды вех: LRA1, LRA2, SOP, CA и т.д. (макс 100 символов, перенос строк)
+result_comment: TEXT (nullable)  # Комментарий к результату аудита
+manual_result_value: VARCHAR(50) (nullable)  # Результат вручную (для CA, внешних аудитов)
+
+# Поля для внешних аудитов - План-График Действий (ПКД)
+pcd_planned_close_date: DATE (nullable)  # Дата закрытия ПКД (плановая)
+pcd_actual_close_date: DATE (nullable)  # Дата закрытия ПКД (фактическая)
+pcd_status: VARCHAR(50) (nullable)  # Статус ПКД: 'open', 'in_progress', 'closed'
 
 # Новые поля: информация о переносах
 postponed_reason: TEXT (nullable)  # причина отложения аудита
@@ -392,6 +418,11 @@ created_by_id: UUID (FK -> User)
 created_at: TIMESTAMP
 updated_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
+
+# M2M связи
+locations: ManyToMany -> Location  # Вместо одного location_id - возможно несколько заводов
+clients: ManyToMany -> Dictionary (тип CLIENT)  # Клиенты (для process_system и LRA)
+shifts: ManyToMany -> Dictionary (тип SHIFT)  # Смены (для process_system)
 ```
 
 #### 4.1.17. AuditComponent (Компонент аудита)
@@ -410,7 +441,32 @@ updated_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.18. Finding (Несоответствие)
+#### 4.1.18. AuditScheduleWeek (Ячейка графика аудитов)
+Таблица для хранения данных недельного графика аудитов. Содержит как ручной ввод (что вводит пользователь), так и автоматические данные (рассчитанные системой).
+
+```python
+id: UUID (PK)
+audit_id: UUID (FK -> Audit)
+week_number: INTEGER  # 1-53 (номер недели)
+year: INTEGER  # 2024, 2025, и т.д.
+
+# Ручной ввод пользователя
+manual_data: VARCHAR(100) (nullable)  # То, что вводит пользователь (LRA1, SOP CA T7, и т.д.)
+                                      # Макс 100 символов, поддерживает перенос строк
+
+# Автоматические данные (рассчитываются системой)
+calculated_result: VARCHAR(50) (nullable)  # Результат (Green/Yellow/Red, Ранг A/B/C, %, и т.д.)
+calculated_status: VARCHAR(50) (nullable)  # Статус (pending, in_progress, completed)
+
+# Переопределение цвета
+color_override: VARCHAR(7) (nullable)  # HEX цвет #RRGGBB (если нужна переопределение)
+
+created_at: TIMESTAMP
+updated_at: TIMESTAMP
+deleted_at: TIMESTAMP (nullable)
+```
+
+#### 4.1.19. Finding (Несоответствие)
 ```python
 id: UUID (PK)
 finding_number: INTEGER AUTO_INCREMENT
@@ -446,7 +502,7 @@ updated_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.19. FindingDelegation (Делегирование)
+#### 4.1.20. FindingDelegation (Делегирование)
 ```python
 id: UUID (PK)
 finding_id: UUID (FK -> Finding)
@@ -457,7 +513,7 @@ delegated_at: TIMESTAMP
 revoked_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.20. FindingComment (Комментарий)
+#### 4.1.21. FindingComment (Комментарий)
 ```python
 id: UUID (PK)
 finding_id: UUID (FK -> Finding)
@@ -468,7 +524,7 @@ updated_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.21. Attachment (Вложение)
+#### 4.1.22. Attachment (Вложение)
 Модель для хранения метаданных о файлах, загруженных пользователями. Физически файлы хранятся в Yandex Object Storage.
 Модель является полиморфной и может быть связана с любой другой сущностью (Аудит, Несоответствие, Пользователь для сертификатов и т.д.).
 ```python
@@ -487,7 +543,7 @@ uploaded_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.22. ChangeHistory (История изменений)
+#### 4.1.23. ChangeHistory (История изменений)
 ```python
 id: UUID (PK)
 entity_type: VARCHAR(50)  # 'audit', 'finding', etc.
@@ -499,7 +555,7 @@ new_value: TEXT
 changed_at: TIMESTAMP
 ```
 
-#### 4.1.23. Notification (Уведомление)
+#### 4.1.24. Notification (Уведомление)
 ```python
 id: UUID (PK)
 user_id: UUID (FK -> User)
@@ -521,7 +577,7 @@ notification_config: JSONB  # настройки уведомлений (за 3 
 created_at: TIMESTAMP
 ```
 
-#### 4.1.24. NotificationQueue (Очередь уведомлений)
+#### 4.1.25. NotificationQueue (Очередь уведомлений)
 ```python
 id: UUID (PK)
 notification_id: UUID (FK -> Notification)
@@ -537,7 +593,7 @@ created_at: TIMESTAMP
 updated_at: TIMESTAMP
 ```
 
-#### 4.1.25. SystemSetting (Настройки системы)
+#### 4.1.26. SystemSetting (Настройки системы)
 ```python
 id: UUID (PK)
 key: VARCHAR(100) UNIQUE
@@ -598,7 +654,7 @@ updated_by_id: UUID (FK -> User)
 'ldap.user_search_base': 'ou=users,dc=your,dc=domain,dc=com'
 ```
 
-#### 4.1.26. APIToken (API токен)
+#### 4.1.27. APIToken (API токен)
 ```python
 id: UUID (PK)
 name: VARCHAR(255)
@@ -618,7 +674,7 @@ allowed_ips: CIDR[] (nullable)
 description: TEXT (nullable)
 ```
 
-#### 4.1.27. RegistrationInvite (Приглашение на регистрацию)
+#### 4.1.28. RegistrationInvite (Приглашение на регистрацию)
 ```python
 id: UUID (PK)
 email: VARCHAR(255) UNIQUE
@@ -629,7 +685,7 @@ created_by_id: UUID (FK -> User, nullable)
 created_at: TIMESTAMP
 ```
 
-#### 4.1.28. S3Storage (Подключение к S3)
+#### 4.1.29. S3Storage (Подключение к S3)
 ```python
 id: UUID (PK)
 name: VARCHAR(100)
@@ -650,7 +706,7 @@ created_at: TIMESTAMP
 updated_at: TIMESTAMP
 ```
 
-#### 4.1.29. EmailAccount (SMTP аккаунт)
+#### 4.1.30. EmailAccount (SMTP аккаунт)
 ```python
 id: UUID (PK)
 name: VARCHAR(100)
@@ -672,7 +728,7 @@ created_at: TIMESTAMP
 updated_at: TIMESTAMP
 ```
 
-#### 4.1.30. LdapConnection (LDAP подключение)
+#### 4.1.31. LdapConnection (LDAP подключение)
 ```python
 id: UUID (PK)
 name: VARCHAR(100)
@@ -760,6 +816,12 @@ CREATE INDEX idx_notification_queue_channel ON notification_queue(channel, statu
 CREATE INDEX idx_notification_queue_scheduled ON notification_queue(scheduled_at, status) WHERE status = 'pending';
 CREATE INDEX idx_notification_queue_notification ON notification_queue(notification_id);
 CREATE INDEX idx_notification_queue_created ON notification_queue(created_at);
+
+-- График аудитов (ячейки недель)
+CREATE INDEX idx_audit_schedule_week_audit ON audit_schedule_weeks(audit_id);
+CREATE INDEX idx_audit_schedule_week_period ON audit_schedule_weeks(year, week_number);
+CREATE INDEX idx_audit_schedule_week_audit_period 
+    ON audit_schedule_weeks(audit_id, year, week_number);
 
 -- JSONB
 CREATE INDEX idx_status_transitions_required_roles ON status_transitions USING gin(required_roles);

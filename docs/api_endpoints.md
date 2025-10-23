@@ -212,6 +212,71 @@
 
 ---
 
+### Ресурс: `/api/v1/audits/calendar` (НОВОЕ)
+Специализированные эндпоинты для работы с графиком аудитов в произвольные периоды.
+
+- `GET /api/v1/audits/calendar/schedule`: Получить график аудитов за произвольный период.
+    - **Query Params:**
+        - `date_from` (обязательно): начальная дата периода (ISO 8601)
+        - `date_to` (обязательно): конечная дата периода (ISO 8601)
+        - `enterprise_id` (опционально): фильтр по предприятию
+        - `process_id` (опционально): фильтр по процессу
+        - `product_id` (опционально): фильтр по продукту
+        - `auditor_id` (опционально): фильтр по аудитору
+        - `status_id` (опционально): фильтр по статусу
+    - **Response:** Список аудитов в периоде с их компонентами, часами, статусом, результатом
+    - **Пример:** `GET /api/v1/audits/calendar/schedule?date_from=2025-01-01&date_to=2025-12-31&enterprise_id=xxx`
+
+- `GET /api/v1/audits/calendar/by_component`: Получить график по компонентам (детали, узлы, системы).
+    - **Query Params:**
+        - `date_from` (обязательно)
+        - `date_to` (обязательно)
+        - `component_type` (опционально): 'part', 'assembly', 'system', 'product', 'subsystem'
+        - `sap_id` (опционально): фильтр по SAP ID
+        - `enterprise_id` (опционально)
+    - **Response:** Группировка аудитов по компонентам с информацией о SAP ID, количестве часов и статусе
+
+- `POST /api/v1/audits/{id}/reschedule`: Перенести (переплан) аудит на новую дату.
+    - **Request Body:**
+        ```json
+        {
+          "new_date_from": "2025-02-15",
+          "new_date_to": "2025-02-16",
+          "reason": "Недоступность аудитора"
+        }
+        ```
+    - **Response:** `200 OK` с обновленной информацией об аудите
+    - **Примечание:** Автоматически заполняет `rescheduled_date`, `postponed_reason`, `rescheduled_by_id`, `rescheduled_at`
+
+- `GET /api/v1/audits/{id}/reschedule_history`: История всех переносов аудита.
+    - **Response:** Список переносов с датами, причинами, и кем переносилось
+
+---
+
+### Ресурс: `/api/v1/audit_components` (НОВОЕ)
+Управление компонентами (деталями, узлами, системами) в рамках аудитов.
+
+- `GET /api/v1/audit_components`: Список компонентов.
+    - **Query Params:** `audit_id`, `component_type`, `sap_id`, `part_number`, `sort_by`, `order`, `page`, `size`.
+- `POST /api/v1/audit_components`: Создать компонент для аудита.
+    - **Request Body:**
+        ```json
+        {
+          "audit_id": "uuid",
+          "component_type": "part",
+          "sap_id": "123456",
+          "part_number": "ABC-123",
+          "component_name": "Передний бампер",
+          "description": "Деталь для проверки..."
+        }
+        ```
+- `GET /api/v1/audit_components/{id}`: Получить компонент.
+- `PUT /api/v1/audit_components/{id}`: Обновить компонент.
+- `DELETE /api/v1/audit_components/{id}`: Удалить компонент.
+- `GET /api/v1/audits/{audit_id}/components`: Список компонентов для конкретного аудита.
+
+---
+
 ## 8. Несоответствия (Findings)
 
 ### Ресурс: `/api/v1/findings`

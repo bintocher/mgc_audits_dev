@@ -325,21 +325,25 @@ GET    /api/v1/change_history
 **Ответственные:** Бэкенд разработчик (24 ч), Архитектор (8 ч), DevOps (8 ч)
 
 **Задачи Backend:**
-1. Модели Status, StatusTransition - 3 ч
+1. Модели Status, StatusTransition с поддержкой цветов переходов - 4 ч
 2. Workflow конструктор: API, валидация переходов - 6 ч
 3. Модели планирования аудитов (AuditPlan, AuditPlanItem) - 4 ч
 4. Модель квалификации аудиторов (AuditorQualification) - 3 ч
-5. Модель Audit со всеми полями + связь с планом - 4 ч
-6. API CRUD для планов аудитов и квалификаций - 6 ч
-7. API CRUD для аудитов, фильтры, пагинация - 6 ч
-8. Модель Finding с 5xWhy анализом - 5 ч
-9. API CRUD для findings, фильтры - 8 ч
-10. Логика смены статусов с валидацией - 4 ч
-11. Модели FindingComment, FindingAttachment - 2 ч
-12. API комментарии и вложения - 3 ч
-13. ChangeHistory - история изменений - 4 ч
-14. Модель FindingDelegation, API - 3 ч
-15. Реализация шифрования для модели `SystemSetting` (ключ из `.env`) - 4 ч
+5. Модель Audit со всеми полями + связь с планом + новые поля (переносы, часы, результаты) - 5 ч
+6. Модель AuditComponent для компонентов/деталей (новое) - 3 ч
+7. API CRUD для планов аудитов и квалификаций - 6 ч
+8. API CRUD для аудитов, фильтры, пагинация - 6 ч
+9. API для графика аудитов (calendar/schedule, calendar/by_component, reschedule) (новое) - 8 ч
+10. API CRUD для компонентов аудитов (новое) - 4 ч
+11. API для истории переносов аудитов (новое) - 2 ч
+12. Модель Finding с 5xWhy анализом - 5 ч
+13. API CRUD для findings, фильтры - 8 ч
+14. Логика смены статусов с валидацией - 4 ч
+15. Модели FindingComment, FindingAttachment - 2 ч
+16. API комментарии и вложения - 3 ч
+17. ChangeHistory - история изменений - 4 ч
+18. Модель FindingDelegation, API - 3 ч
+19. Реализация шифрования для модели `SystemSetting` (ключ из `.env`) - 4 ч
 
 **Задачи DevOps:**
 - Настройка Redis, Celery для фоновых задач - 4 ч
@@ -582,12 +586,17 @@ GET    /api/v1/change_history
 - JWT, LDAP, OTP авторизация - 12 ч
 - RBAC: middleware, декораторы, API - 6 ч
 - Модели справочников, API CRUD - 9 ч
-- Модели Status, StatusTransition - 3 ч
+- Модели Status, StatusTransition с цветами - 4 ч
 - Workflow конструктор, валидация - 6 ч
 - Модели планирования аудитов (AuditPlan, AuditPlanItem) - 4 ч
 - Модель квалификации аудиторов (AuditorQualification) - 3 ч
-- Модель Audit, API CRUD - 10 ч
+- Модель Audit с новыми полями (переносы, часы, результаты) - 5 ч
+- Модель AuditComponent (новое) - 3 ч
 - API CRUD для планов аудитов и квалификаций - 6 ч
+- API CRUD для аудитов - 6 ч
+- API для графика аудитов (calendar/schedule, by_component) (новое) - 8 ч
+- API для переносов аудитов и истории (новое) - 4 ч
+- API CRUD для компонентов (новое) - 4 ч
 - Модель Finding, API CRUD - 13 ч
 - FindingComment, FindingAttachment - 2 ч
 - API для вложений с интеграцией Yandex Object Storage (pre-signed URLs) - 5 ч
@@ -655,7 +664,7 @@ GET    /api/v1/change_history
 
 ---
 
-## 9. Финансовая оценка
+## 10. Финансовая оценка
 
 ### Стоимость базовой разработки
 

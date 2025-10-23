@@ -279,8 +279,8 @@ deleted_at: TIMESTAMP (nullable)
 id: UUID (PK)
 name: VARCHAR(100)
 code: VARCHAR(50)
-color: VARCHAR(7)  # HEX цвет #RRGGBB
-entity_type: VARCHAR(50)  # 'audit', 'finding'
+color: VARCHAR(7)  # HEX цвет #RRGGBB для статуса
+entity_type: VARCHAR(50)  # 'audit', 'finding', 'audit_plan'
 order: INTEGER
 is_initial: BOOLEAN
 is_final: BOOLEAN
@@ -298,6 +298,7 @@ required_roles: JSONB  # [role_id, role_id, ...]
 required_fields: JSONB  # ['field_name', 'field_name', ...]
 require_comment: BOOLEAN
 notification_config: JSONB  # настройки уведомлений
+color: VARCHAR(7) (nullable)  # HEX цвет переходов для визуализации (опционально)
 created_at: TIMESTAMP
 ```
 
@@ -371,13 +372,45 @@ audit_plan_item_id: UUID (FK -> AuditPlanItem, nullable)  # связь с пла
 audit_date_from: DATE
 audit_date_to: DATE
 year: INTEGER
+
+# Новые поля: результаты и ресурсы
+audit_result: VARCHAR(20) (nullable)  # 'green', 'yellow', 'red', 'no_noncompliance'
+estimated_hours: DECIMAL (nullable)  # плановые часы на аудит
+actual_hours: DECIMAL (nullable)  # фактические часы (заполняется после завершения)
+
+# Новые поля: информация о переносах
+postponed_reason: TEXT (nullable)  # причина отложения аудита
+rescheduled_date: DATE (nullable)  # новая дата при переносе
+rescheduled_by_id: UUID (FK -> User, nullable)  # кто перенес
+rescheduled_at: TIMESTAMP (nullable)  # когда был перенос
+
+# Утверждение графика
+approved_by_id: UUID (FK -> User, nullable)  # кто утвердил график
+approved_date: DATE (nullable)  # дата утверждения
+
 created_by_id: UUID (FK -> User)
 created_at: TIMESTAMP
 updated_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.17. Finding (Несоответствие)
+#### 4.1.17. AuditComponent (Компонент аудита)
+Новая модель для привязки компонентов (деталей, узлов, систем) из внешних систем (SAP, ERP) к аудитам. Позволяет детализировать, какие именно компоненты проверяются в рамках конкретного аудита.
+
+```python
+id: UUID (PK)
+audit_id: UUID (FK -> Audit)
+component_type: VARCHAR(50)  # 'part', 'assembly', 'system', 'product', 'subsystem'
+sap_id: VARCHAR(100) (nullable)  # ID из SAP/ERP системы
+part_number: VARCHAR(100) (nullable)  # номер детали
+component_name: VARCHAR(500)  # название компонента
+description: TEXT (nullable)  # описание компонента
+created_at: TIMESTAMP
+updated_at: TIMESTAMP
+deleted_at: TIMESTAMP (nullable)
+```
+
+#### 4.1.18. Finding (Несоответствие)
 ```python
 id: UUID (PK)
 finding_number: INTEGER AUTO_INCREMENT
@@ -413,7 +446,7 @@ updated_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.18. FindingDelegation (Делегирование)
+#### 4.1.19. FindingDelegation (Делегирование)
 ```python
 id: UUID (PK)
 finding_id: UUID (FK -> Finding)
@@ -424,7 +457,7 @@ delegated_at: TIMESTAMP
 revoked_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.19. FindingComment (Комментарий)
+#### 4.1.20. FindingComment (Комментарий)
 ```python
 id: UUID (PK)
 finding_id: UUID (FK -> Finding)
@@ -435,7 +468,7 @@ updated_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.19. Attachment (Вложение)
+#### 4.1.21. Attachment (Вложение)
 Модель для хранения метаданных о файлах, загруженных пользователями. Физически файлы хранятся в Yandex Object Storage.
 Модель является полиморфной и может быть связана с любой другой сущностью (Аудит, Несоответствие, Пользователь для сертификатов и т.д.).
 ```python
@@ -454,7 +487,7 @@ uploaded_at: TIMESTAMP
 deleted_at: TIMESTAMP (nullable)
 ```
 
-#### 4.1.21. ChangeHistory (История изменений)
+#### 4.1.22. ChangeHistory (История изменений)
 ```python
 id: UUID (PK)
 entity_type: VARCHAR(50)  # 'audit', 'finding', etc.
@@ -466,7 +499,7 @@ new_value: TEXT
 changed_at: TIMESTAMP
 ```
 
-#### 4.1.22. Notification (Уведомление)
+#### 4.1.23. Notification (Уведомление)
 ```python
 id: UUID (PK)
 user_id: UUID (FK -> User)
@@ -488,7 +521,7 @@ notification_config: JSONB  # настройки уведомлений (за 3 
 created_at: TIMESTAMP
 ```
 
-#### 4.1.23. NotificationQueue (Очередь уведомлений)
+#### 4.1.24. NotificationQueue (Очередь уведомлений)
 ```python
 id: UUID (PK)
 notification_id: UUID (FK -> Notification)
@@ -504,7 +537,7 @@ created_at: TIMESTAMP
 updated_at: TIMESTAMP
 ```
 
-#### 4.1.24. SystemSetting (Настройки системы)
+#### 4.1.25. SystemSetting (Настройки системы)
 ```python
 id: UUID (PK)
 key: VARCHAR(100) UNIQUE
@@ -565,7 +598,7 @@ updated_by_id: UUID (FK -> User)
 'ldap.user_search_base': 'ou=users,dc=your,dc=domain,dc=com'
 ```
 
-#### 4.1.25. APIToken (API токен)
+#### 4.1.26. APIToken (API токен)
 ```python
 id: UUID (PK)
 name: VARCHAR(255)
@@ -585,7 +618,7 @@ allowed_ips: CIDR[] (nullable)
 description: TEXT (nullable)
 ```
 
-#### 4.1.26. RegistrationInvite (Приглашение на регистрацию)
+#### 4.1.27. RegistrationInvite (Приглашение на регистрацию)
 ```python
 id: UUID (PK)
 email: VARCHAR(255) UNIQUE
@@ -596,7 +629,7 @@ created_by_id: UUID (FK -> User, nullable)
 created_at: TIMESTAMP
 ```
 
-#### 4.1.27. S3Storage (Подключение к S3)
+#### 4.1.28. S3Storage (Подключение к S3)
 ```python
 id: UUID (PK)
 name: VARCHAR(100)
@@ -617,7 +650,7 @@ created_at: TIMESTAMP
 updated_at: TIMESTAMP
 ```
 
-#### 4.1.28. EmailAccount (SMTP аккаунт)
+#### 4.1.29. EmailAccount (SMTP аккаунт)
 ```python
 id: UUID (PK)
 name: VARCHAR(100)
@@ -639,7 +672,7 @@ created_at: TIMESTAMP
 updated_at: TIMESTAMP
 ```
 
-#### 4.1.29. LdapConnection (LDAP подключение)
+#### 4.1.30. LdapConnection (LDAP подключение)
 ```python
 id: UUID (PK)
 name: VARCHAR(100)
@@ -691,6 +724,12 @@ CREATE INDEX idx_audits_status ON audits(status_id);
 CREATE INDEX idx_audits_auditor ON audits(auditor_id);
 CREATE INDEX idx_audits_dates ON audits(audit_date_from, audit_date_to);
 CREATE INDEX idx_audits_year ON audits(year);
+CREATE INDEX idx_audits_rescheduled ON audits(rescheduled_date) WHERE rescheduled_date IS NOT NULL;
+
+-- Компоненты аудитов
+CREATE INDEX idx_audit_components_audit ON audit_components(audit_id);
+CREATE INDEX idx_audit_components_sap ON audit_components(sap_id) WHERE sap_id IS NOT NULL;
+CREATE INDEX idx_audit_components_type ON audit_components(component_type);
 
 -- Findings
 CREATE INDEX idx_findings_audit ON findings(audit_id);
@@ -727,26 +766,204 @@ CREATE INDEX idx_status_transitions_required_roles ON status_transitions USING g
 CREATE INDEX idx_status_transitions_required_fields ON status_transitions USING gin(required_fields);
 ```
 
+### 4.3. Партиционирование (PostgreSQL 18)
+
+**Стратегия партиционирования для оптимизации запросов графика аудитов и масштабируемости.**
+
+Партиционирование необходимо для таблиц с высоким объемом записей и частыми запросами за временные периоды:
+
+#### 4.3.1. Таблица `audits` - RANGE по audit_date_from
+**Обоснование:** Основная таблица для графика аудитов. Часто выполняются запросы "Аудиты за период [date_from, date_to]". Партиционирование по дате аудита ускоряет эти запросы на 10-50x.
+
+```sql
+CREATE TABLE audits (
+    id UUID,
+    title VARCHAR(500),
+    audit_date_from DATE NOT NULL,
+    -- ... остальные поля ...
+    PARTITION BY RANGE (DATE_TRUNC('month', audit_date_from::timestamp))
+);
+
+-- Партиции на 3 месяца вперед и 12 месяцев назад
+CREATE TABLE audits_2024_q4 PARTITION OF audits
+    FOR VALUES FROM ('2024-10-01') TO ('2025-01-01');
+
+CREATE TABLE audits_2025_q1 PARTITION OF audits
+    FOR VALUES FROM ('2025-01-01') TO ('2025-04-01');
+
+CREATE TABLE audits_2025_q2 PARTITION OF audits
+    FOR VALUES FROM ('2025-04-01') TO ('2025-07-01');
+
+-- Индексы для быстрых запросов внутри партиций
+CREATE INDEX ON audits_2024_q4(audit_date_from, audit_date_to, enterprise_id);
+CREATE INDEX ON audits_2024_q4(status_id, auditor_id);
+CREATE INDEX ON audits_2025_q1(audit_date_from, audit_date_to, enterprise_id);
+CREATE INDEX ON audits_2025_q1(status_id, auditor_id);
+CREATE INDEX ON audits_2025_q2(audit_date_from, audit_date_to, enterprise_id);
+CREATE INDEX ON audits_2025_q2(status_id, auditor_id);
+```
+
+#### 4.3.2. Таблица `audit_components` - RANGE по created_at
+**Обоснование:** Компоненты аудитов могут быть в большом количестве. Запросы часто фильтруют по дате создания и связанному аудиту. Партиционирование ускоряет выборку по компонентам конкретного периода.
+
+```sql
+CREATE TABLE audit_components (
+    id UUID,
+    audit_id UUID,
+    component_type VARCHAR(50),
+    created_at TIMESTAMP NOT NULL,
+    PARTITION BY RANGE (DATE_TRUNC('month', created_at))
+);
+
+CREATE TABLE audit_components_2024_q4 PARTITION OF audit_components
+    FOR VALUES FROM ('2024-10-01') TO ('2025-01-01');
+
+CREATE TABLE audit_components_2025_q1 PARTITION OF audit_components
+    FOR VALUES FROM ('2025-01-01') TO ('2025-04-01');
+
+-- Индексы для быстрого поиска в пределах партиции
+CREATE INDEX ON audit_components_2024_q4(audit_id, component_type);
+CREATE INDEX ON audit_components_2024_q4(sap_id) WHERE sap_id IS NOT NULL;
+CREATE INDEX ON audit_components_2025_q1(audit_id, component_type);
+CREATE INDEX ON audit_components_2025_q1(sap_id) WHERE sap_id IS NOT NULL;
+```
+
+#### 4.3.3. Таблица `findings` - RANGE по created_at
+**Обоснование:** Несоответствия накапливаются с течением времени. Запросы часто ищут findings за определенный период. Партиционирование исключает ненужные таблицы из полнотекстовых сканов.
+
+```sql
+CREATE TABLE findings (
+    id UUID,
+    audit_id UUID,
+    created_at TIMESTAMP NOT NULL,
+    -- ... остальные поля ...
+    PARTITION BY RANGE (DATE_TRUNC('month', created_at))
+);
+
+CREATE TABLE findings_2024_q4 PARTITION OF findings
+    FOR VALUES FROM ('2024-10-01') TO ('2025-01-01');
+
+CREATE TABLE findings_2025_q1 PARTITION OF findings
+    FOR VALUES FROM ('2025-01-01') TO ('2025-04-01');
+
+-- Индексы для быстрого поиска в пределах партиции
+CREATE INDEX ON findings_2024_q4(audit_id, status_id);
+CREATE INDEX ON findings_2024_q4(resolver_id, deadline);
+CREATE INDEX ON findings_2025_q1(audit_id, status_id);
+CREATE INDEX ON findings_2025_q1(resolver_id, deadline);
+```
+
+#### 4.3.4. Таблица `notifications` - RANGE по created_at
+**Обоснование:** Уведомления - самая быстрорастущая таблица (может быть миллионы записей). Партиционирование критично для:
+- Статистики уведомлений (≤7 дней)
+- Очистки старых записей (удаление по партициям)
+- Мониторинга очередей
+
+```sql
+CREATE TABLE notifications (
+    id UUID,
+    created_at TIMESTAMP NOT NULL,
+    -- ... остальные поля ...
+    PARTITION BY RANGE (DATE_TRUNC('day', created_at))
+);
+
+-- Ежемесячные партиции
+CREATE TABLE notifications_2024_10 PARTITION OF notifications
+    FOR VALUES FROM ('2024-10-01') TO ('2024-11-01');
+
+CREATE TABLE notifications_2024_11 PARTITION OF notifications
+    FOR VALUES FROM ('2024-11-01') TO ('2024-12-01');
+
+CREATE TABLE notifications_2024_12 PARTITION OF notifications
+    FOR VALUES FROM ('2024-12-01') TO ('2025-01-01');
+
+CREATE TABLE notifications_2025_01 PARTITION OF notifications
+    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+
+-- Индексы для быстрого поиска в пределах партиции
+CREATE INDEX ON notifications_2024_10(user_id, is_read, created_at DESC);
+CREATE INDEX ON notifications_2024_10(event_type, created_at);
+CREATE INDEX ON notifications_2024_11(user_id, is_read, created_at DESC);
+CREATE INDEX ON notifications_2024_11(event_type, created_at);
+-- ... аналогично для других партиций
+```
+
+#### 4.3.5. Таблица `notification_queue` - RANGE по created_at
+**Обоснование:** Очередь уведомлений быстро растет. Партиционирование позволяет:
+- Быстро удалять обработанные уведомления старше N дней
+- Ускорить поиск по статусам в текущем периоде
+- Мониторить лаг обработки за периоды
+
+```sql
+CREATE TABLE notification_queue (
+    id UUID,
+    created_at TIMESTAMP NOT NULL,
+    status VARCHAR(20),
+    -- ... остальные поля ...
+    PARTITION BY RANGE (DATE_TRUNC('week', created_at))
+);
+
+CREATE TABLE notification_queue_2024_w40 PARTITION OF notification_queue
+    FOR VALUES FROM ('2024-09-30') TO ('2024-10-07');
+
+CREATE TABLE notification_queue_2024_w41 PARTITION OF notification_queue
+    FOR VALUES FROM ('2024-10-07') TO ('2024-10-14');
+
+-- Индексы для быстрого поиска
+CREATE INDEX ON notification_queue_2024_w40(status, scheduled_at);
+CREATE INDEX ON notification_queue_2024_w40(channel, status);
+CREATE INDEX ON notification_queue_2024_w41(status, scheduled_at);
+CREATE INDEX ON notification_queue_2024_w41(channel, status);
+```
+
+#### 4.3.6. Таблица `change_history` - RANGE по changed_at
+**Обоснование:** История изменений растет быстро. Партиционирование позволяет:
+- Быстро удалять старые записи (по партициям)
+- Ускорить поиск истории за период
+- Архивировать старые данные отдельно
+
+```sql
+CREATE TABLE change_history (
+    id UUID,
+    changed_at TIMESTAMP NOT NULL,
+    -- ... остальные поля ...
+    PARTITION BY RANGE (DATE_TRUNC('month', changed_at))
+);
+
+CREATE TABLE change_history_2024_q4 PARTITION OF change_history
+    FOR VALUES FROM ('2024-10-01') TO ('2025-01-01');
+
+CREATE TABLE change_history_2025_q1 PARTITION OF change_history
+    FOR VALUES FROM ('2025-01-01') TO ('2025-04-01');
+
+-- Индексы для быстрого поиска
+CREATE INDEX ON change_history_2024_q4(entity_type, entity_id, changed_at DESC);
+CREATE INDEX ON change_history_2024_q4(user_id, changed_at);
+CREATE INDEX ON change_history_2025_q1(entity_type, entity_id, changed_at DESC);
+CREATE INDEX ON change_history_2025_q1(user_id, changed_at);
+```
+
+#### 4.3.7. Управление партициями
+
+**Автоматическое создание новых партиций:**
+- Ежемесячно для `audits`, `findings`, `change_history` (в начале месяца)
+- Еженедельно для `notification_queue` (в начале недели)
+- Ежедневно для `notifications` (в начале дня)
+
+**Это можно настроить через:**
+- Cron-задачу на сервере (Celery Beat)
+- pg_partman расширение PostgreSQL
+- Вручную через миграции
+
+**Удаление старых партиций:**
+- Уведомления: старше 7 дней
+- История: старше 90 дней
+- Findings/Audits/Components: архивировать, не удалять
+
+
 ---
 
 ## 5. Безопасность
-
-### 4.3. Партиционирование (PostgreSQL 18)
-
-Рекомендуется партиционирование по месяцу (RANGE по `created_at`) для таблиц с высоким объемом записей:
-- `notifications`, `notification_queue`, `change_history`, опционально `finding_comments`.
-
-Пример DDL (для документации):
-```sql
--- Родительская таблица предполагает PARTITION BY RANGE (created_at)
--- CREATE TABLE notifications (..., created_at TIMESTAMP NOT NULL) PARTITION BY RANGE (created_at);
-
-CREATE TABLE notifications_2025_10 PARTITION OF notifications
-  FOR VALUES FROM ('2025-10-01') TO ('2025-11-01');
-
-CREATE INDEX ON notifications_2025_10(user_id, created_at DESC);
-CREATE INDEX ON notifications_2025_10(event_type, created_at);
-```
 
 ### 5.1. Шифрование настроек
 
@@ -832,4 +1049,42 @@ CREATE INDEX ON notifications_2025_10(event_type, created_at);
 -   **Процесс делегирования**: Когда один сотрудник передает задачу другому, система просто обновляет значение в поле `resolver_id` / `auditor_id`.
 -   **История**: Каждая такая передача фиксируется в `FindingDelegation` или аналогичной таблице для аудитов. Это позволяет отследить всю цепочку ответственных.
 -   **"Главный" ответственный**: Понятие "главного" ответственного (инициатора) реализуется на уровне логики. Например, при эскалации или отправке уведомлений о просрочке, система анализирует историю делегирования, чтобы уведомить не только текущего исполнителя, но и того, кто изначально передал ему задачу.
+
+### 6.10. Работа с произвольными периодами в аудитах
+- Пользователи могут выбирать произвольные даты для аудитов (например, "с 15.03.2024 по 20.03.2024").
+- Система автоматически рассчитывает `audit_date_from` и `audit_date_to` на основе выбранного периода.
+- При экспорте данных аудита, если период не указан, экспортируются все данные за текущий год.
+- При создании нового аудита, если период не указан, система предлагает текущий год.
+- При редактировании аудита, если период не указан, система сохраняет текущий период.
+
+### 6.11. График аудитов (Audit Calendar)
+**Система поддерживает гибкую визуализацию графика аудитов с произвольными периодами без привязки к календарному году, месяцу или неделе.**
+
+#### Функциональность:
+1. **Просмотр графика за произвольный период**: Пользователь выбирает `date_from` и `date_to`. API возвращает все аудиты в этом диапазоне.
+   - Параметры: `date_from`, `date_to`, фильтры по процессам, продуктам, аудиторам, статусам.
+   - Результат: Список аудитов с их компонентами, часами, статусом, результатом.
+
+2. **Просмотр графика по компонентам**: Группировка аудитов по компонентам (детали, узлы, системы).
+   - Позволяет видеть, какие компоненты проверяются и когда.
+   - Фильтры: `component_type`, `sap_id`, `part_number`.
+   - Полезно для отслеживания полноты аудита по всем компонентам.
+
+3. **Переносы аудитов**: При необходимости перенести аудит:
+   - Заполняются поля `rescheduled_date`, `postponed_reason`, `rescheduled_by_id`, `rescheduled_at`.
+   - История переносов сохраняется для audit trail.
+
+4. **Статусы и результаты**: Каждый аудит имеет:
+   - `status_id`: текущий статус (запланирован, проводится, отложен, завершен и т.д.)
+   - `audit_result`: результат (green, yellow, red, no_noncompliance)
+   - Цветовое кодирование для быстрой визуализации на фронте.
+
+5. **Компоненты в аудите**: Модель `AuditComponent` позволяет отслеживать:
+   - Какие детали/узлы/системы проверяются.
+   - SAP ID для интеграции с внешними системами.
+   - Количество часов на каждый компонент.
+
+---
+
+## 7. Безопасность
 

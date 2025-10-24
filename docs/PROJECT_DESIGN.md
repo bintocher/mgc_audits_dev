@@ -60,6 +60,34 @@
 - **Email:** fastapi-mail (или аналогичная асинхронная библиотека)
 - **Telegram:** python-telegram-bot
 
+### 2.5. Управление зависимостями
+
+**Менеджер пакетов:** Используется `uv` для управления зависимостями Python проектов.
+
+#### Установка зависимостей через uvx
+
+Зависимости устанавливаются через команду `uvx` (uv execute), которая автоматически создает изолированное виртуальное окружение и устанавливает необходимые пакеты.
+
+**Пример использования:**
+
+```bash
+# Установка зависимостей из requirements.txt
+uvx pip install -r requirements.txt
+
+# Установка конкретного пакета
+uvx pip install fastapi sqlalchemy
+
+# Запуск приложения через uvx
+uvx python main.py
+
+# Запуск миграций через uvx
+uvx alembic upgrade head
+```
+**Структура файлов зависимостей:**
+- `requirements.txt` - основные зависимости проекта
+- `requirements-dev.txt` - зависимости для разработки (опционально)
+- `pyproject.toml` - конфигурация проекта и метаданные (рекомендуется)
+
 ---
 
 ## 3. Архитектура системы
@@ -491,9 +519,9 @@ why_4: TEXT (nullable)
 why_5: TEXT (nullable)
 
 # Действия
-immediate_action: TEXT (nullable) # Корректирующие действия
+immediate_action: TEXT (nullable) # Коррекция
 root_cause: TEXT (nullable) # Коренная причина
-long_term_action: TEXT (nullable) # Долгосрочные корректирующие действия
+long_term_action: TEXT (nullable) # Корректирующие действия
 action_verification: TEXT (nullable) # Проверка корректирующих действий
 preventive_measures: TEXT (nullable) # Предупреждающие действия
 
@@ -1075,9 +1103,9 @@ CREATE INDEX ON change_history_2025_q1(user_id, changed_at);
 
 ### 6.4. Валидация полей несоответствия (Finding)
 Обязательность полей в сущности `Finding` зависит от ее типа (`finding_type`). Валидация происходит на уровне API при сохранении.
--   **CAR1**: Обязательны для заполнения все 5 полей решения (`immediate_action`, `root_cause`, `long_term_action`, `action_verification`, `preventive_measures`) И как минимум 3 из 5 полей `why_*`.
--   **CAR2**: Обязательно только поле `immediate_action` И как минимум 3 из 5 полей `why_*`.
--   **OFI**: На данный момент от заказчика не получены уточнения по этому типу несоответствия
+-   **CAR1**: Обязательны для заполнения все 5 полей решения (`immediate_action`, `root_cause`, `long_term_action`, `action_verification`, `preventive_measures`) И как минимум 3 из 5 полей `why_*`  +вложения
+-   **CAR2**: Обязательно только поле `immediate_action`  +вложения
+-   **OFI**:  +вложения+ На данный момент от заказчика не получены уточнения по этому типу несоответствия 
 
 ### 6.8. Привязка Telegram пользователем
 - Пользователь инициирует привязку через endpoint, получает одноразовую ссылку/токен.

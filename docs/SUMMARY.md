@@ -35,6 +35,7 @@
 - PostgreSQL 18
 - Redis 6.4 + Celery
 - JWT авторизация
+- Управление зависимостями: uv + uvx
 
 **Frontend:**
 - React 18 + TypeScript
